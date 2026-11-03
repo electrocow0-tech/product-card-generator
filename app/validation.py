@@ -231,7 +231,13 @@ def validate_draft(draft: CardDraft, product: ProductInput) -> list[Violation]:
             )
         )
     elif desc_len > DESC_MAX:
-        violations.append(Violation("length", f"seo_description: {desc_len} символов, максимум {DESC_MAX} — сократи"))
+        violations.append(
+            Violation(
+                "length",
+                f"seo_description: {desc_len} символов, максимум {DESC_MAX} — сократи примерно на "
+                f"{desc_len - DESC_MAX + 150} символов за счёт общих фраз, факты сохрани",
+            )
+        )
     n_queries = len(draft.search_queries)
     if not QUERIES_MIN <= n_queries <= QUERIES_MAX:
         violations.append(
