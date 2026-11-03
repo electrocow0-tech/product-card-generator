@@ -49,7 +49,9 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
     if any(e.get("type") == "json_invalid" for e in errors):
         detail = next(e.get("msg", "") for e in errors if e.get("type") == "json_invalid")
         return JSONResponse({"error": f"Некорректный JSON: {detail}"}, status_code=400)
-    details = [f"{'.'.join(str(x) for x in e['loc'][1:]) or 'body'}: {e['msg']}" for e in errors]
+    details = [
+        f"{'.'.join(str(x) for x in e['loc'][1:]) or 'body'}: {e['msg'].removeprefix('Value error, ')}" for e in errors
+    ]
     return JSONResponse({"error": "Некорректные входные данные", "details": details}, status_code=422)
 
 

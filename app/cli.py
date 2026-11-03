@@ -26,7 +26,9 @@ class InputError(Exception):
 
 
 def format_validation_error(exc: ValidationError) -> str:
-    return "; ".join(f"{'.'.join(str(x) for x in e['loc']) or 'input'}: {e['msg']}" for e in exc.errors())
+    return "; ".join(
+        f"{'.'.join(str(x) for x in e['loc']) or 'input'}: {e['msg'].removeprefix('Value error, ')}" for e in exc.errors()
+    )
 
 
 def load_product(path: Path) -> ProductInput:
