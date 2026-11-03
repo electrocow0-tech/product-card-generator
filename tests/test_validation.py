@@ -84,8 +84,12 @@ def test_too_many_missing_rows_is_violation(manometer):
 def test_marketing_claims_are_violation(manometer):
     draft = good_draft()
     draft["commercial_block"]["tasks"] = ["надёжный и долговечный контроль давления"]
+    draft["commercial_block"]["for_whom"] = "Простой монтаж и проверенные характеристики."
     violations = validate_draft(CardDraft.model_validate(draft), manometer)
-    assert any(v.kind == "claim" and "оценочные" in v.message for v in violations)
+    marketing = [v for v in violations if v.kind == "claim" and "оценочные" in v.message]
+    assert len(marketing) == 2
+    for_whom = next(v.message for v in marketing if v.message.startswith("commercial_block.for_whom"))
+    assert "простой" in for_whom and "проверенн" in for_whom
 
 
 def test_finalize_replaces_unverified_values(manometer):

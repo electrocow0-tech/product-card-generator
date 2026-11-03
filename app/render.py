@@ -45,7 +45,7 @@ def to_markdown(card: ProductCard) -> str:
 
     lines += ["## Контроль качества", "", f"- Обращений к модели: {q.attempts}"]
     if q.warnings:
-        lines.append("- Предупреждения:")
+        lines.append("- Предупреждения (проверьте вручную):")
         lines += [f"  - {w}" for w in q.warnings]
     else:
         lines.append("- Автоматическая проверка пройдена: все значения характеристик найдены во входных данных")

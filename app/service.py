@@ -97,7 +97,7 @@ def generate_card(product: ProductInput, llm: Completer, max_attempts: int = 3) 
     characteristics, warnings = finalize_characteristics(draft.characteristics, product, violations)
     for v in violations:
         if v.kind in {"number", "claim", "length", "structure"}:
-            warnings.append(f"Проверьте вручную: {v.summary}")
+            warnings.append(v.summary)
     missing_fields = finalize_missing_fields(draft.missing_fields, characteristics, product)
 
     return ProductCard(
