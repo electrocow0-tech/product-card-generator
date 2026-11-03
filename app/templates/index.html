@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Черновик карточки товара</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e3e6ea; --accent:#1f5eff; --warn:#b45309; --warn-bg:#fff7ed; --ok:#047857; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:var(--text); background:var(--bg); }
+  header { padding:20px 24px 8px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  header p { margin:0; color:var(--muted); font-size:14px; }
+  main { display:grid; grid-template-columns:minmax(320px,440px) 1fr; gap:20px; padding:16px 24px 40px; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  textarea { min-height:80px; resize:vertical; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  button { padding:9px 16px; border:1px solid var(--line); border-radius:6px; background:#fff; font:inherit; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.6; cursor:default; }
+  .hint { font-size:12px; color:var(--muted); }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button.active { background:var(--text); color:#fff; border-color:var(--text); }
+  pre { white-space:pre-wrap; word-break:break-word; font:13px/1.5 ui-monospace, Menlo, Consolas, monospace; background:#fafbfc; border:1px solid var(--line); border-radius:6px; padding:12px; margin:0; max-height:70vh; overflow:auto; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .chip { font-size:12px; padding:3px 8px; border-radius:999px; background:#eef1f5; color:var(--text); }
+  .chip.warn { background:var(--warn-bg); color:var(--warn); }
+  .chip.ok { background:#ecfdf5; color:var(--ok); }
+  .error { color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:10px 12px; margin-bottom:12px; white-space:pre-wrap; }
+  .warnings { background:var(--warn-bg); border:1px solid #fed7aa; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:13px; }
+  .warnings ul { margin:6px 0 0; padding-left:18px; }
+  .empty { color:var(--muted); }
+  details summary { cursor:pointer; color:var(--muted); font-size:13px; margin-top:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Черновик карточки товара (КИП)</h1>
+  <p>Заполните данные о приборе — сервис подготовит SEO-заголовок, описание, характеристики, поисковые запросы и коммерческий блок. Характеристики берутся только из введённых данных.</p>
+</header>
+<main>
+  <section>
+    <form id="form">
+      <label for="name">Название товара *</label>
+      <input id="name" name="name" required placeholder="Манометр показывающий DM 02">
+      <label for="manufacturer">Производитель</label>
+      <input id="manufacturer" name="manufacturer" placeholder="Манотомь">
+      <label for="specs">Характеристики — по одной на строку, «название: значение»</label>
+      <textarea id="specs" name="specs" placeholder="диапазон измерений: 0–1,6 МПа&#10;класс точности: 1,5&#10;присоединение: G1/2&#10;диаметр корпуса: 100 мм"></textarea>
+      <label for="description">Описание или фрагмент паспорта</label>
+      <textarea id="description" name="description" placeholder="Прибор предназначен для измерения избыточного давления…"></textarea>
+      <details>
+        <summary>Или вставьте JSON целиком</summary>
+        <textarea id="json" placeholder='{"name": "...", "manufacturer": "...", "specs": {"...": "..."}, "description": "..."}'></textarea>
+        <div class="hint">Если это поле заполнено, форма выше игнорируется.</div>
+      </details>
+      <div class="row">
+        <button type="submit" class="primary" id="submit">Сформировать черновик</button>
+        <button type="button" id="example">Подставить пример</button>
+        <span class="hint" id="status"></span>
+      </div>
+    </form>
+  </section>
+  <section>
+    <div id="result"><p class="empty">Здесь появится результат. Обычно генерация занимает 10–40 секунд.</p></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const EXAMPLE = {
+  name: "Манометр показывающий DM 02",
+  manufacturer: "Манотомь",
+  specs: { "диапазон измерений": "0–1,6 МПа", "класс точности": "1,5", "присоединение": "G1/2", "диаметр корпуса": "100 мм" },
+  description: "Прибор предназначен для измерения избыточного давления неагрессивных, некристаллизующихся жидкостей, пара и газа."
+};
+let lastCard = null, lastMarkdown = "", activeTab = "md";
+
+function parseSpecs(text) {
+  const specs = {};
+  text.split("\n").forEach((line) => {
+    const i = line.indexOf(":");
+    if (i > 0) specs[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    else if (line.trim()) specs[line.trim()] = "";
+  });
+  return specs;
+}
+
+function collectPayload() {
+  const raw = $("json").value.trim();
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) { throw new Error("Некорректный JSON в поле «вставьте JSON»: " + e.message); }
+  }
+  return {
+    name: $("name").value, manufacturer: $("manufacturer").value,
+    specs: parseSpecs($("specs").value), description: $("description").value
+  };
+}
+
+function chip(text, cls) { return `<span class="chip ${cls || ""}">${text}</span>`; }
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function render() {
+  if (!lastCard) return;
+  const q = lastCard.quality;
+  const titleOk = q.seo_title_length <= 70, descOk = q.seo_description_length >= 800 && q.seo_description_length <= 1200;
+  const missing = lastCard.characteristics.filter((c) => c.status === "missing").length;
+  let html = `<div class="chips">
+    ${chip("заголовок " + q.seo_title_length + "/70", titleOk ? "ok" : "warn")}
+    ${chip("описание " + q.seo_description_length + " симв.", descOk ? "ok" : "warn")}
+    ${chip("обращений к модели: " + q.attempts)}
+    ${chip("данных нет: " + missing, missing ? "warn" : "ok")}
+    ${chip("уточнить: " + lastCard.missing_fields.length, lastCard.missing_fields.length ? "warn" : "ok")}
+  </div>`;
+  if (q.warnings.length) {
+    html += `<div class="warnings"><b>Проверьте вручную:</b><ul>${q.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
+  }
+  html += `<div class="tabs">
+    <button type="button" data-tab="md" class="${activeTab === "md" ? "active" : ""}">Markdown</button>
+    <button type="button" data-tab="json" class="${activeTab === "json" ? "active" : ""}">JSON</button>
+    <button type="button" id="copy">Скопировать</button>
+  </div>`;
+  const body = activeTab === "md" ? lastMarkdown : JSON.stringify(lastCard, null, 2);
+  html += `<pre id="out">${esc(body)}</pre>`;
+  $("result").innerHTML = html;
+  document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { activeTab = b.dataset.tab; render(); });
+  $("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(body); $("copy").textContent = "Скопировано"; }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($("out")); getSelection().removeAllRanges(); getSelection().addRange(r); $("copy").textContent = "Выделено — нажмите Ctrl+C"; }
+    setTimeout(() => { $("copy").textContent = "Скопировать"; }, 2000);
+  };
+}
+
+$("example").onclick = () => {
+  $("name").value = EXAMPLE.name; $("manufacturer").value = EXAMPLE.manufacturer;
+  $("specs").value = Object.entries(EXAMPLE.specs).map(([k, v]) => `${k}: ${v}`).join("\n");
+  $("description").value = EXAMPLE.description; $("json").value = "";
+};
+
+$("form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  let payload;
+  try { payload = collectPayload(); } catch (e) { $("result").innerHTML = `<div class="error">${esc(e.message)}</div>`; return; }
+  $("submit").disabled = true; $("status").textContent = "Генерация…";
+  const started = Date.now();
+  try {
+    const resp = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await resp.json();
+    if (!resp.ok) {
+      const details = data.details ? "\n" + data.details.join("\n") : "";
+      $("result").innerHTML = `<div class="error">${esc(data.error || ("Ошибка " + resp.status))}${esc(details)}</div>`;
+      return;
+    }
+    lastCard = data.card; lastMarkdown = data.markdown; render();
+  } catch (e) {
+    $("result").innerHTML = `<div class="error">Сервис недоступен: ${esc(e.message)}</div>`;
+  } finally {
+    $("submit").disabled = false; $("status").textContent = "за " + Math.round((Date.now() - started) / 1000) + " с";
+  }
+};
+</script>
+</body>
+</html>
